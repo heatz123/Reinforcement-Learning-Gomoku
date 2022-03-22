@@ -8,4 +8,4 @@
 
 - Player agent vs AI agent: `python3 server.py`
 
-- AI agent vs. AI agent: `python3 server.py AIVAI`
+- AI agent vs. AI agent: `python3 learn.py`

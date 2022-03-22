@@ -14,6 +14,7 @@ class Arena:
     GIVE_UP = 'GIVE_UP'
 
     def __init__(self):
+        self._event_queue = None
         self.game = Game()
         self.arena_id = uuid.uuid4()
         self.agents: list[Agent] = []
@@ -46,10 +47,6 @@ class Arena:
                 pass
             self._event_queue.task_done()
 
-    def _init_event_loop(self):
-        self._event_queue = Queue()
-        self.game_task = asyncio.create_task(self.process_events())
-
     def put_event(self, event: Event):
         self._event_queue.put_nowait(event)
 
@@ -61,10 +58,11 @@ class Arena:
         shuffle(self.agents)
         for index, agent in enumerate(self.agents):
             agent.attach_arena(self, bool(index))
-        self._init_event_loop()
+        self._event_queue = Queue()
         for agent in self.agents:
             asyncio.create_task(agent.update_state(self.game_state))
         asyncio.create_task(self.agents[self.game.next_turn].request_placement(self.game_state))
+        return asyncio.create_task(self.process_events())
 
 
 class PVAIArena(Arena):
