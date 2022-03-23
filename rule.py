@@ -1,4 +1,8 @@
-from container import Direction, Placement
+from container import Direction, Move
+
+BLACK = False
+WHITE = True
+BOARD_SIZE = 15
 
 directions = [
     Direction(1, 0),
@@ -8,21 +12,34 @@ directions = [
 ]
 
 
-class InvalidPlacementError(ValueError):
+class IllegalMoveError(ValueError):
     def __init__(self, message):
         self.message = message
-        super(InvalidPlacementError, self).__init__(message)
+        super(IllegalMoveError, self).__init__(message)
 
     def __str__(self):
-        return f'InvalidPlacementError: {self.message}'
+        return f'IllegalMoveError: {self.message}'
 
 
 class Rule:
     @staticmethod
-    def five_in_a_row(board: list[list[bool | None]], placement: Placement):
-        i = placement.i
-        j = placement.j
-        color = placement.color
+    def check_valid_move(board: list[list[bool | None]], move: Move):
+        if not (0 <= move.i < len(board) and 0 <= move.j < len(board[move.i])):
+            raise IllegalMoveError('Out of range of board.')
+        if board[move.i][move.j] is not None:
+            raise IllegalMoveError('A stone exists already.')
+
+    @staticmethod
+    def will_win(board: list[list[bool | None]], move: Move):
+        raise NotImplementedError()
+
+
+class GomokuRule(Rule):
+    @staticmethod
+    def five_in_a_row(board: list[list[bool | None]], move: Move):
+        i = move.i
+        j = move.j
+        color = move.color
         board[i][j] = color
         try:
             for d in directions:
@@ -43,27 +60,12 @@ class Rule:
             board[i][j] = None
 
     @staticmethod
-    def _check_valid_placement(board: list[list[bool | None]], placement: Placement):
-        if not (0 <= placement.i < len(board)):
-            raise InvalidPlacementError('Out of range of board.')
-        if not (0 <= placement.j < len(board[placement.i])):
-            raise InvalidPlacementError('Out of range of board.')
-        if board[placement.i][placement.j] is not None:
-            raise InvalidPlacementError('A stone exists already.')
-
-    @staticmethod
-    def will_win(board: list[list[bool | None]], placement: Placement):
-        raise NotImplementedError()
-
-
-class GomokuRule(Rule):
-    @staticmethod
-    def will_win(board: list[list[bool | None]], placement: Placement):
-        GomokuRule._check_valid_placement(board, placement)
-        return GomokuRule.five_in_a_row(board, placement)
+    def will_win(board: list[list[bool | None]], move: Move):
+        GomokuRule.check_valid_move(board, move)
+        return GomokuRule.five_in_a_row(board, move)
 
 
 class RenjuRule(Rule):
     @staticmethod
-    def will_win(board: list[list[bool | None]], placement: Placement):
+    def will_win(board: list[list[bool | None]], move: Move):
         raise NotImplementedError()

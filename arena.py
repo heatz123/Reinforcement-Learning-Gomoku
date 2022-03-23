@@ -4,13 +4,13 @@ from asyncio import Queue
 from random import shuffle
 
 from agent import AIAgent, Agent, PlayerAgent
-from container import GameState, Placement, Event
+from container import GameState, Move, Event
 from game import Game
-from rule import InvalidPlacementError
+from rule import IllegalMoveError
 
 
 class Arena:
-    PLACE_STONE = 'PLACE_STONE'
+    MOVE = 'MOVE'
     GIVE_UP = 'GIVE_UP'
 
     def __init__(self):
@@ -27,21 +27,21 @@ class Arena:
         while True:
             event: Event = await self._event_queue.get()
             print(f'Process {event}')
-            if event.type == Arena.PLACE_STONE:
-                placement: Placement = event.data
+            if event.type == Arena.MOVE:
+                move: Move = event.data
                 try:
-                    self.game.place_stone(placement)
+                    self.game.play_move(move)
                     for agent in self.agents:
                         if self.game.is_game_over or agent.color != self.game.next_turn:
                             asyncio.create_task(agent.update_state(self.game_state))
-                except InvalidPlacementError as e:
+                except IllegalMoveError as e:
                     print(e)
                 if self.game.is_game_over:
                     break
-                asyncio.create_task(self.agents[self.game.next_turn].request_placement(self.game_state))
+                asyncio.create_task(self.agents[self.game.next_turn].request_move(self.game_state))
             elif event.type == Arena.GIVE_UP:
                 # TODO
-                self.game.game_over(event.dispatcher.color)
+                self.game.force_win(not event.dispatcher.color)
                 break
             else:
                 pass
@@ -61,7 +61,7 @@ class Arena:
         self._event_queue = Queue()
         for agent in self.agents:
             asyncio.create_task(agent.update_state(self.game_state))
-        asyncio.create_task(self.agents[self.game.next_turn].request_placement(self.game_state))
+        asyncio.create_task(self.agents[self.game.next_turn].request_move(self.game_state))
         return asyncio.create_task(self.process_events())
 
 

@@ -20,19 +20,21 @@ class Event:
 @dataclass
 class GameState:
     next_turn: bool
-    last_placement: Placement
+    last_move: Move
     winner: [bool | None]
+    moves: list[Move]
     board: list[list[bool | None]]
 
     def __init__(self, game: Game):
         self.next_turn = game.next_turn
-        self.last_placement = game.last_placement
+        self.last_move = game.last_move
         self.winner = game.winner
+        self.moves = game.moves
         self.board = copy.deepcopy(game.board)
 
 
 @dataclass
-class Placement:
+class Move:
     i: int
     j: int
     color: bool

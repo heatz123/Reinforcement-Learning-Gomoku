@@ -7,7 +7,7 @@ from random import shuffle
 
 from websockets.exceptions import ConnectionClosedError
 
-from container import GameState, Event, Placement
+from container import GameState, Event, Move
 
 from typing import TYPE_CHECKING
 
@@ -37,7 +37,7 @@ class Agent:
     async def update_state(self, state: GameState):
         raise NotImplementedError()
 
-    async def request_placement(self, state: GameState):
+    async def request_move(self, state: GameState):
         raise NotImplementedError()
 
 
@@ -56,9 +56,9 @@ class PlayerAgent(Agent):
                     print(f'nonJSON Message received, ignore it: {message}')
                     continue
                 # print(f'receive: {message}')
-                if message['type'] == 'PLACE_STONE':
+                if message['type'] == 'MOVE':
                     from arena import Arena
-                    self.put_event(Arena.PLACE_STONE, Placement(
+                    self.put_event(Arena.MOVE, Move(
                         message['data']['i'],
                         message['data']['j'],
                         self.color,
@@ -77,8 +77,8 @@ class PlayerAgent(Agent):
     async def update_state(self, state: GameState):
         await self._send_message('UPDATE_STATE', state)
 
-    async def request_placement(self, state: GameState):
-        await self._send_message('REQUEST_PLACEMENT', state)
+    async def request_move(self, state: GameState):
+        await self._send_message('REQUEST_MOVE', state)
 
 
 class AIAgent(Agent):
@@ -88,17 +88,17 @@ class AIAgent(Agent):
     async def update_state(self, state: GameState):
         pass
 
-    async def request_placement(self, state: GameState):
+    async def request_move(self, state: GameState):
         # TODO
 
         from arena import Arena
         rule = self.arena.game.rule
         max_depth = 3
 
-        def best_placement(board: list[list[bool | None]], color: bool, depth: int):
+        def best_move(board: list[list[bool | None]], color: bool, depth: int):
             for i in range(len(board)):
                 for j in range(len(board)):
-                    p = Placement(i, j, color)
+                    p = Move(i, j, color)
                     try:
                         if rule.will_win(board, p):
                             return p
@@ -106,48 +106,48 @@ class AIAgent(Agent):
                         pass
             if depth == max_depth:
                 return None
-            _, neighbored = get_placements(board, color)
+            _, neighbored = get_moves(board, color)
             for p in neighbored:
                 i = p.i
                 j = p.j
                 board[i][j] = color
-                if best_placement(board, not color, depth + 1) is None:
+                if best_move(board, not color, depth + 1) is None:
                     board[i][j] = None
                     return p
                 board[i][j] = None
             return None
 
-        def get_placements(board, color):
+        def get_moves(board, color):
             available = []
             neighbored = []
             for i in range(len(board)):
                 for j in range(len(board[i])):
                     try:
-                        rule.will_win(board, Placement(i, j, color))
+                        rule.will_win(board, Move(i, j, color))
                     except:
                         continue
-                    available.append(Placement(i, j, color))
+                    available.append(Move(i, j, color))
                     for di, dj in ((0,1), (1,0), (0,-1), (-1,0), (1,1), (-1,1), (-1,-1), (1,-1)):
                         ii = i + di
                         jj = j + dj
                         if not (0 <= ii < len(board) and 0 <= jj < len(board[ii])):
                             continue
                         if board[ii][jj] is not None:
-                            neighbored.append(Placement(i, j, color))
+                            neighbored.append(Move(i, j, color))
                             break
             return available, neighbored
 
-        bp = best_placement(state.board, self.color, 0)
-        if bp is not None:
-            self.put_event(Arena.PLACE_STONE, bp)
+        bm = best_move(state.board, self.color, 0)
+        if bm is not None:
+            self.put_event(Arena.MOVE, bm)
             return
 
-        available, neighbored = get_placements(state.board, self.color)
+        available, neighbored = get_moves(state.board, self.color)
         if neighbored:
             shuffle(neighbored)
-            self.put_event(Arena.PLACE_STONE, Placement(neighbored[0].i, neighbored[0].j, self.color))
+            self.put_event(Arena.MOVE, Move(neighbored[0].i, neighbored[0].j, self.color))
         elif available:
             shuffle(available)
-            self.put_event(Arena.PLACE_STONE, Placement(available[0].i, available[0].j, self.color))
+            self.put_event(Arena.MOVE, Move(available[0].i, available[0].j, self.color))
         else:
-            raise ValueError("Cannot place onto any position.")
+            raise ValueError("Cannot move onto any position.")
