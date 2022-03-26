@@ -12,7 +12,7 @@ class Game:
         self.rule: Rule = RenjuRule()
 
     @property
-    def last_move(self):
+    def last_move(self) -> None | Move:
         if not self.moves:
             return None
         return self.moves[-1]
@@ -30,8 +30,15 @@ class Game:
         else:
             self.next_turn = not self.next_turn
 
+    def pass_move(self, color: bool):
+        if self.next_turn != color:
+            raise IllegalMoveError('It\'s not valid turn.')
+        if self.last_move and self.last_move.color == self.next_turn:
+            self.is_game_over = True
+        else:
+            self.next_turn = not self.next_turn
+
     def force_win(self, winner: bool):
         self.is_game_over = True
         self.next_turn = None
         self.winner = winner
-

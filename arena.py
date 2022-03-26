@@ -11,6 +11,7 @@ from rule import IllegalMoveError
 
 class Arena:
     MOVE = 'MOVE'
+    PASS = 'PASS'
     GIVE_UP = 'GIVE_UP'
 
     def __init__(self):
@@ -33,6 +34,17 @@ class Arena:
                     self.game.play_move(move)
                     for agent in self.agents:
                         if self.game.is_game_over or agent.color != self.game.next_turn:
+                            asyncio.create_task(agent.update_state(self.game_state))
+                except IllegalMoveError as e:
+                    print(e)
+                if self.game.is_game_over:
+                    break
+                asyncio.create_task(self.agents[self.game.next_turn].request_move(self.game_state))
+            elif event.type == Arena.PASS:
+                try:
+                    self.game.pass_move(event.dispatcher.color)
+                    for agent in self.agents:
+                        if self.game.is_game_over:
                             asyncio.create_task(agent.update_state(self.game_state))
                 except IllegalMoveError as e:
                     print(e)

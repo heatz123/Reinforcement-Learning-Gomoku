@@ -48,6 +48,7 @@ class PlayerAgent(Agent):
         asyncio.create_task(self._receive_message())
 
     async def _receive_message(self):
+        from arena import Arena
         try:
             async for message in self.websocket:
                 try:
@@ -57,14 +58,14 @@ class PlayerAgent(Agent):
                     continue
                 # print(f'receive: {message}')
                 if message['type'] == 'MOVE':
-                    from arena import Arena
                     self.put_event(Arena.MOVE, Move(
                         message['data']['i'],
                         message['data']['j'],
                         self.color,
                     ))
+                elif message['type'] == 'PASS':
+                    self.put_event(Arena.PASS)
         except ConnectionClosedError:
-            from arena import Arena
             self.put_event(Arena.GIVE_UP)
 
     async def _send_message(self, type: str, data: any = None, message: any = None):
@@ -89,6 +90,9 @@ class AIAgent(Agent):
         pass
 
     async def request_move(self, state: GameState):
+        from arena import Arena
+        self.put_event(Arena.PASS)
+        return
         # for i in range(len(state.board)):
         #     for j in range(len(state.board)):
         #         m = Move(i, j, self.color)
@@ -98,7 +102,6 @@ class AIAgent(Agent):
         #             return
         # TODO
 
-        from arena import Arena
         rule = self.arena.game.rule
         max_depth = 3
 
