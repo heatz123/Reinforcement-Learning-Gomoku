@@ -1,5 +1,5 @@
 from container import Move
-from rule import GomokuRule, IllegalMoveError, BOARD_SIZE, BLACK
+from rule import IllegalMoveError, BOARD_SIZE, BLACK, Rule, GomokuRule, RenjuRule
 
 
 class Game:
@@ -9,7 +9,7 @@ class Game:
         self.moves = []
         self.next_turn = BLACK
         self.is_game_over = False
-        self.rule = GomokuRule()
+        self.rule: Rule = RenjuRule()
 
     @property
     def last_move(self):
@@ -20,9 +20,10 @@ class Game:
     def play_move(self, move: Move):
         if self.next_turn != move.color:
             raise IllegalMoveError('It\'s not valid turn.')
-        self.is_game_over = self.rule.will_win(self.board, move)
+        self.rule.is_legal_move(self.board, move, raise_exception=True)
         self.board[move.i][move.j] = move.color
         self.moves.append(move)
+        self.is_game_over = self.rule.is_win(self.board, move)
         if self.is_game_over:
             self.next_turn = None
             self.winner = move.color

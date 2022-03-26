@@ -89,6 +89,13 @@ class AIAgent(Agent):
         pass
 
     async def request_move(self, state: GameState):
+        # for i in range(len(state.board)):
+        #     for j in range(len(state.board)):
+        #         m = Move(i, j, self.color)
+        #         if self.arena.game.rule.is_legal_move(state.board, m):
+        #             from arena import Arena
+        #             self.put_event(Arena.MOVE, m)
+        #             return
         # TODO
 
         from arena import Arena
@@ -97,23 +104,26 @@ class AIAgent(Agent):
 
         def best_move(board: list[list[bool | None]], color: bool, depth: int):
             for i in range(len(board)):
-                for j in range(len(board)):
-                    p = Move(i, j, color)
+                for j in range(len(board[i])):
+                    m = Move(i, j, color)
+                    if not rule.is_legal_move(board, m):
+                        continue
                     try:
-                        if rule.will_win(board, p):
-                            return p
-                    except:
-                        pass
+                        board[i][j] = color
+                        if rule.is_win(board, m):
+                            return m
+                    finally:
+                        board[i][j] = None
             if depth == max_depth:
                 return None
             _, neighbored = get_moves(board, color)
-            for p in neighbored:
-                i = p.i
-                j = p.j
+            for m in neighbored:
+                i = m.i
+                j = m.j
                 board[i][j] = color
                 if best_move(board, not color, depth + 1) is None:
                     board[i][j] = None
-                    return p
+                    return m
                 board[i][j] = None
             return None
 
@@ -122,9 +132,7 @@ class AIAgent(Agent):
             neighbored = []
             for i in range(len(board)):
                 for j in range(len(board[i])):
-                    try:
-                        rule.will_win(board, Move(i, j, color))
-                    except:
+                    if not rule.is_legal_move(board, Move(i, j, color)):
                         continue
                     available.append(Move(i, j, color))
                     for di, dj in ((0,1), (1,0), (0,-1), (-1,0), (1,1), (-1,1), (-1,-1), (1,-1)):

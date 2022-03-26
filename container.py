@@ -4,7 +4,6 @@ from dataclasses import dataclass
 
 from typing import TYPE_CHECKING
 
-
 if TYPE_CHECKING:
     from agent import Agent
     from game import Game
@@ -44,3 +43,24 @@ class Move:
 class Direction:
     i: int
     j: int
+
+    def front_of(self, i, j):
+        return i - self.i, j - self.j
+
+    def rear_of(self, i, j):
+        return i + self.i, j + self.j
+
+
+@dataclass
+class Row:
+    move_list: list[tuple[int, int]]
+    inner_blank: None | tuple[int, int]
+    direction: Direction
+
+    @property
+    def front_blank(self):
+        return self.direction.front_of(*self.move_list[0])
+
+    @property
+    def rear_blank(self):
+        return self.direction.rear_of(*self.move_list[-1])
