@@ -1,18 +1,18 @@
 from container import Move
-from rule import IllegalMoveError, BOARD_SIZE, BLACK, Rule, GomokuRule, RenjuRule
+from rule import IllegalMoveError, BOARD_SIZE, BLACK, BLANK, Rule, GomokuRule, RenjuRule, WHITE
 
 
 class Game:
     def __init__(self):
         self.winner = None
-        self.board: list[list[bool | None]] = [[None for _ in range(BOARD_SIZE)] for _ in range(BOARD_SIZE)]
+        self.board: list[list[int]] = [[BLANK for _ in range(BOARD_SIZE)] for _ in range(BOARD_SIZE)]
         self.moves = []
         self.next_turn = BLACK
         self.is_game_over = False
         self.rule: Rule = RenjuRule()
 
     @property
-    def last_move(self) -> None | Move:
+    def last_move(self):
         if not self.moves:
             return None
         return self.moves[-1]
@@ -28,17 +28,17 @@ class Game:
             self.next_turn = None
             self.winner = move.color
         else:
-            self.next_turn = not self.next_turn
+            self.next_turn = -self.next_turn
 
-    def pass_move(self, color: bool):
+    def pass_move(self, color: int):
         if self.next_turn != color:
             raise IllegalMoveError('It\'s not valid turn.')
-        if self.last_move and self.last_move.color == self.next_turn:
+        if (self.last_move and self.last_move.color == self.next_turn) or (not self.last_move and self.next_turn == WHITE):
             self.is_game_over = True
         else:
-            self.next_turn = not self.next_turn
+            self.next_turn = -self.next_turn
 
-    def force_win(self, winner: bool):
+    def force_win(self, winner: int):
         self.is_game_over = True
         self.next_turn = None
         self.winner = winner

@@ -15,18 +15,23 @@ class Event:
     type: str
     data: any
 
+    def __str__(self):
+        return f'Event[{self.type}] from {self.dispatcher}{": " + str(self.data) if self.data else ""}'
+
 
 @dataclass
 class GameState:
-    next_turn: bool
+    next_turn: int
     last_move: Move
-    winner: [bool | None]
+    is_game_over: bool
+    winner: int
     moves: list[Move]
-    board: list[list[bool | None]]
+    board: list[list[int]]
 
     def __init__(self, game: Game):
         self.next_turn = game.next_turn
         self.last_move = game.last_move
+        self.is_game_over = game.is_game_over
         self.winner = game.winner
         self.moves = game.moves
         self.board = copy.deepcopy(game.board)
@@ -36,7 +41,7 @@ class GameState:
 class Move:
     i: int
     j: int
-    color: bool
+    color: int
 
 
 @dataclass
@@ -54,7 +59,7 @@ class Direction:
 @dataclass
 class Row:
     move_list: list[tuple[int, int]]
-    inner_blank: None | tuple[int, int]
+    inner_blank: tuple[int, int]
     direction: Direction
 
     @property
