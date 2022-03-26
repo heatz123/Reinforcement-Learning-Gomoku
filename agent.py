@@ -2,14 +2,16 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import json
+import re
 from json import JSONDecodeError
-from random import shuffle
 
 from websockets.exceptions import ConnectionClosedError
 
 from container import GameState, Event, Move
 
 from typing import TYPE_CHECKING
+
+from rule import name_of
 
 if TYPE_CHECKING:
     from arena import Arena
@@ -18,7 +20,11 @@ if TYPE_CHECKING:
 class EnhancedJSONEncoder(json.JSONEncoder):
     def default(self, o):
         if dataclasses.is_dataclass(o):
-            return dataclasses.asdict(o)
+            new_dict = dict()
+            for key, value in dataclasses.asdict(o).items():
+                new_key = re.sub('_([a-z|0-9])', lambda pat: pat.group(1).upper(), key)
+                new_dict[new_key] = value
+            return new_dict
         return super().default(o)
 
 
@@ -27,7 +33,7 @@ class Agent:
         self.arena = None
         self.color = None
 
-    def attach_arena(self, arena: Arena, color: bool):
+    def attach_arena(self, arena: Arena, color: int):
         self.arena = arena
         self.color = color
 
@@ -39,6 +45,9 @@ class Agent:
 
     async def request_move(self, state: GameState):
         raise NotImplementedError()
+
+    def __str__(self):
+        return f'{self.__class__.__name__} {name_of(self.color)}'
 
 
 class PlayerAgent(Agent):
@@ -71,7 +80,7 @@ class PlayerAgent(Agent):
     async def _send_message(self, type: str, data: any = None, message: any = None):
         await self.websocket.send(json.dumps(dict(type=type, data=data, message=message), cls=EnhancedJSONEncoder))
 
-    def attach_arena(self, arena: Arena, color: bool):
+    def attach_arena(self, arena: Arena, color: int):
         super(PlayerAgent, self).attach_arena(arena, color)
         asyncio.create_task(self._send_message('NEW_GAME', dict(color=color)))
 
@@ -92,73 +101,3 @@ class AIAgent(Agent):
     async def request_move(self, state: GameState):
         from arena import Arena
         self.put_event(Arena.PASS)
-        return
-        # for i in range(len(state.board)):
-        #     for j in range(len(state.board)):
-        #         m = Move(i, j, self.color)
-        #         if self.arena.game.rule.is_legal_move(state.board, m):
-        #             from arena import Arena
-        #             self.put_event(Arena.MOVE, m)
-        #             return
-        # TODO
-
-        rule = self.arena.game.rule
-        max_depth = 3
-
-        def best_move(board: list[list[bool | None]], color: bool, depth: int):
-            for i in range(len(board)):
-                for j in range(len(board[i])):
-                    m = Move(i, j, color)
-                    if not rule.is_legal_move(board, m):
-                        continue
-                    try:
-                        board[i][j] = color
-                        if rule.is_win(board, m):
-                            return m
-                    finally:
-                        board[i][j] = None
-            if depth == max_depth:
-                return None
-            _, neighbored = get_moves(board, color)
-            for m in neighbored:
-                i = m.i
-                j = m.j
-                board[i][j] = color
-                if best_move(board, not color, depth + 1) is None:
-                    board[i][j] = None
-                    return m
-                board[i][j] = None
-            return None
-
-        def get_moves(board, color):
-            available = []
-            neighbored = []
-            for i in range(len(board)):
-                for j in range(len(board[i])):
-                    if not rule.is_legal_move(board, Move(i, j, color)):
-                        continue
-                    available.append(Move(i, j, color))
-                    for di, dj in ((0,1), (1,0), (0,-1), (-1,0), (1,1), (-1,1), (-1,-1), (1,-1)):
-                        ii = i + di
-                        jj = j + dj
-                        if not (0 <= ii < len(board) and 0 <= jj < len(board[ii])):
-                            continue
-                        if board[ii][jj] is not None:
-                            neighbored.append(Move(i, j, color))
-                            break
-            return available, neighbored
-
-        bm = best_move(state.board, self.color, 0)
-        if bm is not None:
-            self.put_event(Arena.MOVE, bm)
-            return
-
-        available, neighbored = get_moves(state.board, self.color)
-        if neighbored:
-            shuffle(neighbored)
-            self.put_event(Arena.MOVE, Move(neighbored[0].i, neighbored[0].j, self.color))
-        elif available:
-            shuffle(available)
-            self.put_event(Arena.MOVE, Move(available[0].i, available[0].j, self.color))
-        else:
-            raise ValueError("Cannot move onto any position.")

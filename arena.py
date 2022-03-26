@@ -6,7 +6,7 @@ from random import shuffle
 from agent import AIAgent, Agent, PlayerAgent
 from container import GameState, Move, Event
 from game import Game
-from rule import IllegalMoveError
+from rule import IllegalMoveError, BLACK, WHITE
 
 
 class Arena:
@@ -39,7 +39,7 @@ class Arena:
                     print(e)
                 if self.game.is_game_over:
                     break
-                asyncio.create_task(self.agents[self.game.next_turn].request_move(self.game_state))
+                asyncio.create_task(self.get_next_agent().request_move(self.game_state))
             elif event.type == Arena.PASS:
                 try:
                     self.game.pass_move(event.dispatcher.color)
@@ -50,7 +50,7 @@ class Arena:
                     print(e)
                 if self.game.is_game_over:
                     break
-                asyncio.create_task(self.agents[self.game.next_turn].request_move(self.game_state))
+                asyncio.create_task(self.get_next_agent().request_move(self.game_state))
             elif event.type == Arena.GIVE_UP:
                 # TODO
                 self.game.force_win(not event.dispatcher.color)
@@ -58,6 +58,9 @@ class Arena:
             else:
                 pass
             self._event_queue.task_done()
+
+    def get_next_agent(self):
+        return next(agent for agent in self.agents if agent.color == self.game.next_turn)
 
     def put_event(self, event: Event):
         self._event_queue.put_nowait(event)
@@ -68,12 +71,13 @@ class Arena:
     def start_game(self):
         self.populate_agents()
         shuffle(self.agents)
-        for index, agent in enumerate(self.agents):
-            agent.attach_arena(self, bool(index))
+        colors = [BLACK, WHITE]
+        for agent, color in zip(self.agents, colors):
+            agent.attach_arena(self, color)
         self._event_queue = Queue()
         for agent in self.agents:
             asyncio.create_task(agent.update_state(self.game_state))
-        asyncio.create_task(self.agents[self.game.next_turn].request_move(self.game_state))
+        asyncio.create_task(self.get_next_agent().request_move(self.game_state))
         return asyncio.create_task(self.process_events())
 
 

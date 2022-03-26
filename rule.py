@@ -1,7 +1,8 @@
 from container import Direction, Move, Row
 
-BLACK = False
-WHITE = True
+BLACK = 1
+WHITE = -1
+BLANK = 0
 BOARD_SIZE = 15
 
 directions = [
@@ -10,6 +11,10 @@ directions = [
     Direction(1, 1),
     Direction(1, -1),
 ]
+
+
+def name_of(color: int):
+    return ['BLANK', 'BLACK', 'WHITE'][color]
 
 
 class IllegalMoveError(ValueError):
@@ -26,18 +31,18 @@ class Rule:
     def is_valid_position(board: list[list], i: int, j: int):
         return 0 <= i < len(board) and 0 <= j < len(board[i])
 
-    def is_legal_move(self, board: list[list[bool | None]], move: Move, raise_exception=False):
+    def is_legal_move(self, board: list[list[int]], move: Move, raise_exception=False):
         if not self.is_valid_position(board, move.i, move.j):
             if raise_exception:
                 raise IllegalMoveError('Out of range of board.')
             return False
-        if board[move.i][move.j] is not None:
+        if board[move.i][move.j] != BLANK:
             if raise_exception:
                 raise IllegalMoveError('A stone exists already.')
             return False
         return True
 
-    def count_succession(self, board: list[list[bool | None]], move: Move, direction: Direction):
+    def count_succession(self, board: list[list[int]], move: Move, direction: Direction):
         cnt = 1
         pos = direction.front_of(move.i, move.j)
         while self.is_valid_position(board, *pos):
@@ -53,27 +58,27 @@ class Rule:
             pos = direction.rear_of(*pos)
         return cnt
 
-    def is_win(self, board: list[list[bool | None]], move: Move):
+    def is_win(self, board: list[list[int]], move: Move):
         raise NotImplementedError()
 
 
 class GomokuRule(Rule):
-    def _five_in_a_row(self, board: list[list[bool | None]], move: Move):
+    def _five_in_a_row(self, board: list[list[int]], move: Move):
         return any(self.count_succession(board, move, d) >= 5 for d in directions)
 
-    def is_win(self, board: list[list[bool | None]], move: Move):
+    def is_win(self, board: list[list[int]], move: Move):
         return self._five_in_a_row(board, move)
 
 
 class RenjuRule(Rule):
-    def is_win(self, board: list[list[bool | None]], move: Move):
+    def is_win(self, board: list[list[int]], move: Move):
         for direction in directions:
             succession = self.count_succession(board, move, direction)
             if succession == 5 or (move.color == WHITE and succession >= 6):
                 return True
         return False
 
-    def is_legal_move(self, board: list[list[bool | None]], move: Move, raise_exception=False):
+    def is_legal_move(self, board: list[list[int]], move: Move, raise_exception=False):
         if not super(RenjuRule, self).is_legal_move(board, move, raise_exception=raise_exception):
             return False
         if move.color == WHITE:
@@ -107,9 +112,9 @@ class RenjuRule(Rule):
                                 return False
             return True
         finally:
-            board[move.i][move.j] = None
+            board[move.i][move.j] = BLANK
 
-    def get_rows(self, board: list[list[bool | None]], move: Move):
+    def get_rows(self, board: list[list[int]], move: Move):
         threes = []
         fours = []
         for d in directions:
@@ -125,7 +130,7 @@ class RenjuRule(Rule):
                         if center_end is None:
                             center_end = end - step
                         break
-                    if board[ei][ej] is None:
+                    if board[ei][ej] == BLANK:
                         if _succession is _end_succession:
                             break
                         center_end = end - step
@@ -161,15 +166,15 @@ class RenjuRule(Rule):
                     fours.append(Row(center_succession + rear_succession, rear_blank, d))
         return threes, fours
 
-    def is_five_in_a_row(self, board: list[list[bool | None]], move: Move, direction: Direction):
+    def is_five_in_a_row(self, board: list[list[int]], move: Move, direction: Direction):
         return self.count_succession(board, move, direction) == 5
 
-    def is_overline(self, board: list[list[bool | None]], move: Move, direction: Direction):
+    def is_overline(self, board: list[list[int]], move: Move, direction: Direction):
         return self.count_succession(board, move, direction) >= 6
 
-    def is_explicitly_closed_three(self, board: list[list[bool | None]], row: Row, color: bool):
+    def is_explicitly_closed_three(self, board: list[list[int]], row: Row, color: int):
         def is_invalid(blank: tuple[int, int]):
-            return not self.is_valid_position(board, *blank) or board[blank[0]][blank[1]] == (not color)
+            return not self.is_valid_position(board, *blank) or board[blank[0]][blank[1]] == -color
 
         def is_occupied(blank: tuple[int, int]):
             return self.is_valid_position(board, *blank) and board[blank[0]][blank[1]] == color
@@ -191,7 +196,7 @@ class RenjuRule(Rule):
                 return True
         return False
 
-    def is_four(self, board: list[list[bool | None]], row: Row, color: bool):
+    def is_four(self, board: list[list[int]], row: Row, color: int):
         if row.inner_blank is not None:
             return self.is_legal_move(board, Move(*row.inner_blank, color))
         else:
@@ -201,7 +206,7 @@ class RenjuRule(Rule):
                 return True
             return False
 
-    def is_open_three(self, board: list[list[bool | None]], row: Row, color: bool):
+    def is_open_three(self, board: list[list[int]], row: Row, color: int):
         if row.inner_blank is not None:
             if not self.is_legal_move(board, Move(*row.inner_blank, color)):
                 return False
@@ -212,7 +217,7 @@ class RenjuRule(Rule):
                 if not self.is_legal_move(board, Move(*row.rear_blank, color)):
                     return False
             finally:
-                board[row.inner_blank[0]][row.inner_blank[1]] = None
+                board[row.inner_blank[0]][row.inner_blank[1]] = BLANK
             return True
         else:
             if self.is_legal_move(board, Move(*row.front_blank, color)):
@@ -221,7 +226,7 @@ class RenjuRule(Rule):
                     if self.is_legal_move(board, Move(*row.direction.front_of(*row.front_blank), color)) and self.is_legal_move(board, Move(*row.rear_blank, color)):
                         return True
                 finally:
-                    board[row.front_blank[0]][row.front_blank[1]] = None
+                    board[row.front_blank[0]][row.front_blank[1]] = BLANK
 
             if self.is_legal_move(board, Move(*row.rear_blank, color)):
                 try:
@@ -229,5 +234,5 @@ class RenjuRule(Rule):
                     if self.is_legal_move(board, Move(*row.direction.rear_of(*row.rear_blank), color)) and self.is_legal_move(board, Move(*row.front_blank, color)):
                         return True
                 finally:
-                    board[row.rear_blank[0]][row.rear_blank[1]] = None
+                    board[row.rear_blank[0]][row.rear_blank[1]] = BLANK
             return False
