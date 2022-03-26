@@ -1,40 +1,44 @@
-from container import Placement
-from rule import GomokuRule, InvalidPlacementError
+from container import Move
+from rule import IllegalMoveError, BOARD_SIZE, BLACK, BLANK, Rule, GomokuRule, RenjuRule, WHITE
 
 
 class Game:
-    BLACK = False
-    WHITE = True
-    BOARD_SIZE = 15
-
     def __init__(self):
         self.winner = None
-        self.board: list[list[bool | None]] = [[None for _ in range(Game.BOARD_SIZE)] for _ in range(Game.BOARD_SIZE)]
-        self.placements = []
-        self.next_turn = Game.BLACK
+        self.board: list[list[int]] = [[BLANK for _ in range(BOARD_SIZE)] for _ in range(BOARD_SIZE)]
+        self.moves = []
+        self.next_turn = BLACK
         self.is_game_over = False
-        self.rule = GomokuRule()
+        self.rule: Rule = RenjuRule()
 
     @property
-    def last_placement(self):
-        if not self.placements:
+    def last_move(self):
+        if not self.moves:
             return None
-        return self.placements[-1]
+        return self.moves[-1]
 
-    def place_stone(self, placement: Placement):
-        if self.next_turn != placement.color:
-            raise InvalidPlacementError('It\'s not valid turn.')
-        self.is_game_over = self.rule.will_win(self.board, placement)
-        self.board[placement.i][placement.j] = placement.color
-        self.placements.append(placement)
+    def play_move(self, move: Move):
+        if self.next_turn != move.color:
+            raise IllegalMoveError('It\'s not valid turn.')
+        self.rule.is_legal_move(self.board, move, raise_exception=True)
+        self.board[move.i][move.j] = move.color
+        self.moves.append(move)
+        self.is_game_over = self.rule.is_win(self.board, move)
         if self.is_game_over:
             self.next_turn = None
-            self.winner = placement.color
+            self.winner = move.color
         else:
-            self.next_turn = not self.next_turn
+            self.next_turn = -self.next_turn
 
-    def game_over(self, winner: bool):
+    def pass_move(self, color: int):
+        if self.next_turn != color:
+            raise IllegalMoveError('It\'s not valid turn.')
+        if (self.last_move and self.last_move.color == self.next_turn) or (not self.last_move and self.next_turn == WHITE):
+            self.is_game_over = True
+        else:
+            self.next_turn = -self.next_turn
+
+    def force_win(self, winner: int):
         self.is_game_over = True
         self.next_turn = None
         self.winner = winner
-
