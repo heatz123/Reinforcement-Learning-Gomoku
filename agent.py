@@ -5,9 +5,9 @@ import json
 import re
 from json import JSONDecodeError
 
-from websockets.exceptions import ConnectionClosedError
+from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
 
-from container import GameState, Event, Move
+from container import GameState, Event, Move, ArenaState
 
 from typing import TYPE_CHECKING
 
@@ -33,15 +33,20 @@ class Agent:
         self.arena = None
         self.color = None
 
-    def attach_arena(self, arena: Arena, color: int):
+    def attach_arena(self, arena: Arena):
         self.arena = arena
-        self.color = color
 
     def put_event(self, type: str, data: any = None):
         self.arena.put_event(Event(self, type, data))
 
-    async def update_state(self, state: GameState):
-        raise NotImplementedError()
+    def start_game(self, color: int):
+        self.color = color
+
+    async def update_arena_state(self, state: ArenaState):
+        pass
+
+    async def update_game_state(self, state: GameState):
+        pass
 
     async def request_move(self, state: GameState):
         raise NotImplementedError()
@@ -51,21 +56,30 @@ class Agent:
 
 
 class PlayerAgent(Agent):
-    def __init__(self, websocket):
+    def __init__(self, websocket, connection_id, spectator=False):
         super(PlayerAgent, self).__init__()
         self.websocket = websocket
-        asyncio.create_task(self._receive_message())
+        self.connection_id = connection_id
+        self.spectator = spectator
+        if spectator:
+            self.color = 0
+
+    def start_receive_message(self):
+        return self._receive_message()
 
     async def _receive_message(self):
         from arena import Arena
         try:
             async for message in self.websocket:
+                if self.spectator:
+                    print('Ignore message from spectator')
+                    continue
                 try:
                     message = json.loads(message)
                 except JSONDecodeError:
                     print(f'nonJSON Message received, ignore it: {message}')
                     continue
-                # print(f'receive: {message}')
+                print(f'AGENT[{self.connection_id[:6]}] Received: {message}')
                 if message['type'] == 'MOVE':
                     self.put_event(Arena.MOVE, Move(
                         message['data']['i'],
@@ -74,18 +88,29 @@ class PlayerAgent(Agent):
                     ))
                 elif message['type'] == 'PASS':
                     self.put_event(Arena.PASS)
-        except ConnectionClosedError:
-            self.put_event(Arena.GIVE_UP)
+        except (ConnectionClosedOK, ConnectionClosedError):
+            if not self.spectator:
+                self.put_event(Arena.GIVE_UP)
+                self.arena.detach_agent(self)
+            else:
+                self.arena.detach_spectator(self)
+        print(f'AGENT[{self.connection_id[:6]}] Disconnected')
 
     async def _send_message(self, type: str, data: any = None, message: any = None):
-        await self.websocket.send(json.dumps(dict(type=type, data=data, message=message), cls=EnhancedJSONEncoder))
+        try:
+            await self.websocket.send(json.dumps(dict(type=type, data=data, message=message), cls=EnhancedJSONEncoder))
+        except (ConnectionClosedOK, ConnectionClosedError):
+            pass
 
-    def attach_arena(self, arena: Arena, color: int):
-        super(PlayerAgent, self).attach_arena(arena, color)
-        asyncio.create_task(self._send_message('NEW_GAME', dict(color=color)))
+    def start_game(self, color: int):
+        super().start_game(color)
+        asyncio.create_task(self._send_message('START_GAME', dict(color=color)))
 
-    async def update_state(self, state: GameState):
-        await self._send_message('UPDATE_STATE', state)
+    async def update_arena_state(self, state: ArenaState):
+        await self._send_message('ARENA_STATE', state)
+
+    async def update_game_state(self, state: GameState):
+        await self._send_message('GAME_STATE', state)
 
     async def request_move(self, state: GameState):
         await self._send_message('REQUEST_MOVE', state)
@@ -95,9 +120,13 @@ class AIAgent(Agent):
     def __init__(self):
         super(AIAgent, self).__init__()
 
-    async def update_state(self, state: GameState):
-        pass
-
     async def request_move(self, state: GameState):
         from arena import Arena
+        await asyncio.sleep(0.5)
+        for i in range(len(state.board)):
+            for j in range(len(state.board[i])):
+                move = Move(i, j, self.color)
+                if self.arena.game.rule.is_legal_move(state.board, move):
+                    self.put_event(Arena.MOVE, move)
+                    return
         self.put_event(Arena.PASS)

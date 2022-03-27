@@ -14,6 +14,8 @@ directions = [
 
 
 def name_of(color: int):
+    if color is None:
+        return None
     return ['BLANK', 'BLACK', 'WHITE'][color]
 
 
@@ -126,7 +128,7 @@ class RenjuRule(Rule):
                 _succession = _center_succession
                 while True:
                     ei, ej = move.i + end * d.i, move.j + end * d.j
-                    if not self.is_valid_position(board, ei, ej) or board[ei][ej] == (not move.color):
+                    if not self.is_valid_position(board, ei, ej) or board[ei][ej] == -move.color:
                         if center_end is None:
                             center_end = end - step
                         break
