@@ -23,7 +23,7 @@ def remove_arena_on_closed(arena):
     async def remove_arena():
         await arena.game_task
         del arenas[arena.arena_id]
-        del remove_task[arena.arena.id]
+        del remove_task[arena.arena_id]
     remove_task[arena.arena_id] = asyncio.create_task(remove_arena())
 
 
