@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from agent import Agent
+    from arena import Arena
     from game import Game
 
 
@@ -35,6 +36,24 @@ class GameState:
         self.winner = game.winner
         self.moves = game.moves
         self.board = copy.deepcopy(game.board)
+
+
+@dataclass
+class ArenaState:
+    id: str
+    is_game_started: bool
+    title: str
+    players: int
+    agents: int
+    spectators: int
+
+    def __init__(self, arena: Arena):
+        self.id = arena.arena_id
+        self.is_game_started = arena.is_game_started
+        self.title = arena.title
+        self.players = arena.player_num
+        self.agents = len(arena.agents)
+        self.spectators = len(arena.spectators)
 
 
 @dataclass
