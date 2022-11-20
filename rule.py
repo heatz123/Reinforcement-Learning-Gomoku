@@ -3,7 +3,7 @@ from container import Direction, Move, Row
 BLACK = 1
 WHITE = -1
 BLANK = 0
-BOARD_SIZE = 15
+BOARD_SIZE = 9
 
 directions = [
     Direction(1, 0),
